@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Cinema reservation code validator</title>
+
+    <link rel="stylesheet" href="cinema.css">
+    <script src="cinema.js" defer></script>
+</head>
+
+<body>
+
+    <header>
+        
+        <div class="brand">
+            <img class="logo" src="images/smLogo.png" alt="SM Cinema logo">
+            <h1>SM Cinema</h1>
+        </div>
+
+    </header>
+
+
+    <div class="movie-grid">
+
+        <div class="movie-card">
+            <img class="movie" src="images/EDJOP.jpg" data-movie="Edjop">
+            <div class="movieInfo" style="display: none;">
+                <h2>Edjop</h2>
+                <p>Action movie</p>
+            </div>
+        </div>
+
+        <div class="movie-card">
+            <img class="movie" src="images/Digger.jpg" data-movie="Digger">
+            <div class="movieInfo" style="display: none;">
+                <h2>Digger</h2>
+                <p>Action movie</p>
+            </div>
+        </div>
+
+        <div class="movie-card">
+            <img class="movie" src="images/Avengers Endgame.jpg" data-movie="Avengers Endgame">
+            <div class="movieInfo" style="display: none;">
+                <h2>Avengers Endgame</h2>
+                <p>Action movie</p>
+            </div>
+        </div>
+
+        <div class="movie-card">
+            <img class="movie" src="images/Forgotten Island.jpg" data-movie="Forgotten Island">
+            <div class="movieInfo" style="display: none;">
+                <h2>Forgotten Island</h2>
+                <p>Action movie</p>
+            </div>
+        </div>
+
+        <div class="movie-card">
+            <img class="movie" src="images/Heart of the beast.jpg" data-movie="Heart of the Beast">
+            <div class="movieInfo" style="display: none;">
+                <h2>Heart of the Beast</h2>
+                <p>Action movie</p>
+            </div>
+        </div>
+
+        <div class="movie-card">
+            <img class="movie" src="images/Resident Evil.jpg" data-movie="Resident Evil">
+            <div class="movieInfo" style="display: none;">
+                <h2>Resident Evil</h2>
+                <p>Action movie</p>
+            </div>
+        </div>
+
+        <div class="movie-card">
+            <img class="movie" src="images/Runner.jpg" data-movie="Runner">
+            <div class="movieInfo" style="display: none;">
+                <h2>Runner</h2>
+                <p>Action movie</p>
+            </div>
+        </div>
+
+        <div class="movie-card">
+            <img class="movie" src="images/Street Fighter.jpg" data-movie="Street Fighter">
+            <div class="movieInfo" style="display: none;">
+                <h2>Street Fighter</h2>
+                <p>Action movie</p>
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- RESERVATION MODAL -->
+
+    <div id="movieModal" class="modal">
+
+        <div class="modal-content">
+
+            <h2 id="modalTitle"></h2>
+
+
+            <!-- STEP 1: DATE -->
+
+            <div id="dateSection">
+
+                <h3>Choose a date</h3>
+
+                <select id="dateSelect">
+                    <option value="">Select a date</option>
+                </select>
+
+            </div>
+
+
+            <!-- STEP 2: TIME -->
+
+            <div id="timeSection" style="display: none;">
+
+                <h3>Choose a time</h3>
+
+                <select id="timeSelect">
+                    <option value="">Select a time</option>
+                    <option value="10:00 AM">10:00 AM</option>
+                    <option value="12:00 PM">12:00 PM</option>
+                    <option value="2:00 PM">2:00 PM</option>
+                    <option value="4:00 PM">4:00 PM</option>
+                    <option value="6:00 PM">6:00 PM</option>
+                    <option value="8:00 PM">8:00 PM</option>
+                    <option value="10:00 PM">10:00 PM</option>
+                </select>
+
+                <button class="backButton" data-back="date">Back</button>
+
+            </div>
+
+
+            <!-- STEP 3: SEATS -->
+
+            <div id="seatSection" style="display: none;">
+
+                <h3>Choose your seats</h3>
+
+                <div id="seatContainer"></div>
+
+                <button id="reserveButton">Reserve</button>
+
+                <button class="backButton" data-back="time">Back</button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- RECEIPT MODAL -->
+
+    <div id="receiptModal" class="modal">
+
+        <div class="receipt">
+
+            <h2 id="receiptCode"></h2>
+
+            <hr>
+
+            <h3>Reservation Details</h3>
+
+            <p id="receiptMovie"></p>
+            <p id="receiptDate"></p>
+            <p id="receiptTime"></p>
+            <p id="receiptSeats"></p>
+
+            <hr>
+
+            <button id="okButton">OK</button>
+
+        </div>
+
+    </div>
+
+    <div class="validation">
+        <button id="validateButton">Validate code</button>
+        <input id="inputCode" type="text">
+    </div>
+
+    <p id="validationResult"></p>
+    
+
+    <footer>
+        <p>2026 SM Cinema. All rights reserved</p>
+    </footer>
+
+</body>
+
+</html>

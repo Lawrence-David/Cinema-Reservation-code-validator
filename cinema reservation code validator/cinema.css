@@ -1,0 +1,150 @@
+body {
+    margin: 0;
+}
+
+header {
+    background-color: blue;
+    align-items: center;
+    display: flex;
+    padding: 1rem 2rem;
+    justify-content: space-between;
+    color: white;
+    width: 100%;
+}
+
+header nav ul {
+    list-style: none;
+    display: flex;
+    gap: 1.5rem; 
+    margin: 0;
+    padding: 0;
+    
+}
+
+
+header nav a {
+    color: white;
+    text-decoration: none; 
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.logo {
+    width: 60px;
+    height: auto;
+}
+
+.movie-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  padding: 20px;
+  
+  max-width: 1200px; /* Limits overall width on large screens */
+  margin: 0 auto;    /* Centers the entire grid container on the page */
+}
+
+.movie-grid img {
+  width: 55%;
+  height: auto;
+  display: block;
+  
+  justify-self: center; /* Centers each image horizontally inside its cell */
+  align-self: center;   /* Centers each image vertically inside its cell */
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.modal-content {
+    background: white;
+    width: 400px;
+    height: 400px;
+    padding: 20px;
+    margin: 100px auto;
+}
+
+#seatContainer {
+    display: grid;
+    grid-template-columns: repeat(6, 40px);
+    gap: 10px;
+}
+
+.seat {
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+}
+
+.seat.selected {
+    background: blue;
+    color: white;
+}
+
+.receipt {
+    background: white;
+    width: 350px;
+    padding: 25px;
+    margin: 100px auto;
+    text-align: center;
+    border-radius: 10px;
+}
+
+.receipt h2 {
+    font-size: 30px;
+    letter-spacing: 3px;
+}
+
+.receipt p {
+    text-align: left;
+    margin: 10px 0;
+}
+
+.receipt button {
+    padding: 10px 30px;
+    cursor: pointer;
+}
+
+.validation{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 40px;
+    gap: 2.5rem;
+}
+
+#validateButton{
+    height: 35px;
+    width: 10%;
+}
+
+#inputCode{
+    height: 35px;
+    width: 20%;
+    
+}
+
+footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: blue;
+    width: 100%;
+    height: 150px;
+    text-align: center;
+    color: white;
+}
+
+#validationResult {
+    text-align: center;
+    font-size: 20px;
+    font-weight: bold;
+}
