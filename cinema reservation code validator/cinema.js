@@ -1,21 +1,30 @@
 const movies = document.querySelectorAll(".movie");
 
 const modal = document.getElementById("movieModal");
+const modalContent = modal.querySelector(".modal-content");
 const modalTitle = document.getElementById("modalTitle");
+const closeButton = document.getElementById("closeButton");
 
 const dateSection = document.getElementById("dateSection");
 const timeSection = document.getElementById("timeSection");
 const seatSection = document.getElementById("seatSection");
 
-const dateSelect = document.getElementById("dateSelect");
-const timeSelect = document.getElementById("timeSelect");
+const dateChips = document.getElementById("dateChips");
+const timeChips = document.getElementById("timeChips");
 const backButtons = document.querySelectorAll(".backButton");
 
+const stepItems = document.querySelectorAll(".stepper li");
+const selectionSummary = document.getElementById("selectionSummary");
+
 const seatContainer = document.getElementById("seatContainer");
+const seatError = document.getElementById("seatError");
+const seatSummary = document.getElementById("seatSummary");
+const copyButton = document.getElementById("copyButton");
 
 const reserveButton = document.getElementById("reserveButton");
 
 const receiptModal = document.getElementById("receiptModal");
+const receiptContent = receiptModal.querySelector(".receipt");
 
 const receiptCode = document.getElementById("receiptCode");
 const receiptMovie = document.getElementById("receiptMovie");
@@ -41,31 +50,241 @@ let selectedDate;
 let selectedTime;
 let selectedSeats = [];
 
+// Element to return focus to when a modal closes
+let lastFocused = null;
+
 
 // ==============================
-// MOVIE
+// MODAL HELPERS
+// ==============================
+
+const steps = {
+    date: dateSection,
+    time: timeSection,
+    seats: seatSection
+};
+
+function showStep(name, moveFocus) {
+
+    Object.entries(steps).forEach(([key, section]) => {
+        section.hidden = key !== name;
+    });
+
+    const current = Object.keys(steps).indexOf(name);
+
+    stepItems.forEach((item, index) => {
+        item.classList.toggle("done", index < current);
+
+        if (index === current) {
+            item.setAttribute("aria-current", "step");
+        } else {
+            item.removeAttribute("aria-current");
+        }
+    });
+
+    updateSummary();
+
+    // The chip or button that was focused is now hidden, so hand focus to the
+    // new step's heading (keeps keyboard and screen-reader users in the dialog)
+    if (moveFocus) {
+        steps[name].querySelector("h3").focus();
+    }
+}
+
+function updateSummary() {
+
+    const parts = [];
+
+    if (selectedDate) {
+        parts.push(formatDateLong(selectedDate));
+    }
+
+    if (selectedTime) {
+        parts.push(selectedTime);
+    }
+
+    selectionSummary.textContent = parts.join("  ·  ");
+}
+
+function sortedSeats() {
+    return [...selectedSeats].sort((a, b) => a - b);
+}
+
+function updateSeatSummary() {
+
+    if (selectedSeats.length === 0) {
+        seatSummary.textContent = "No seats selected";
+    } else {
+        seatSummary.textContent =
+            (selectedSeats.length === 1 ? "Seat " : "Seats ") +
+            sortedSeats().join(", ");
+    }
+}
+
+function formatDateFull(iso) {
+
+    const [year, month, day] = iso.split("-").map(Number);
+
+    return new Date(year, month - 1, day).toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+    });
+}
+
+function openModal(element, content) {
+
+    element.classList.add("open");
+    element.setAttribute("aria-hidden", "false");
+    document.body.classList.add("modal-open");
+
+    content.focus();
+}
+
+function closeModal(element) {
+
+    element.classList.remove("open");
+    element.setAttribute("aria-hidden", "true");
+
+    if (!document.querySelector(".modal.open")) {
+        document.body.classList.remove("modal-open");
+
+        if (lastFocused) {
+            lastFocused.focus();
+        }
+    }
+}
+
+function focusableIn(container) {
+    return [...container.querySelectorAll(
+        "button, [href], input, select, textarea"
+    )].filter(el => !el.disabled && el.offsetParent !== null);
+}
+
+document.addEventListener("keydown", function(event) {
+
+    const openEl = document.querySelector(".modal.open");
+
+    if (!openEl) {
+        return;
+    }
+
+    if (event.key === "Escape") {
+        closeModal(openEl);
+        return;
+    }
+
+    if (event.key === "Tab") {
+
+        const content = openEl.firstElementChild;
+        const items = focusableIn(content);
+
+        if (items.length === 0) {
+            event.preventDefault();
+            return;
+        }
+
+        const first = items[0];
+        const last = items[items.length - 1];
+
+        if (!content.contains(document.activeElement)) {
+            event.preventDefault();
+            first.focus();
+            return;
+        }
+
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === content)) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    }
+});
+
+// Click on the dark backdrop (not the dialog) closes the modal
+[modal, receiptModal].forEach(element => {
+    element.addEventListener("mousedown", function(event) {
+        if (event.target === element) {
+            closeModal(element);
+        }
+    });
+});
+
+closeButton.addEventListener("click", function() {
+    closeModal(modal);
+});
+
+
+// ==============================
+// DATE FORMATTING (local time)
+// ==============================
+
+function toLocalISO(date) {
+
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return date.getFullYear() + "-" + month + "-" + day;
+}
+
+function formatDateLong(iso) {
+
+    const [year, month, day] = iso.split("-").map(Number);
+
+    return new Date(year, month - 1, day).toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric"
+    });
+}
+
+function selectChip(container, chip) {
+
+    container.querySelectorAll(".chip").forEach(item => {
+        item.classList.remove("selected");
+        item.setAttribute("aria-pressed", "false");
+    });
+
+    chip.classList.add("selected");
+    chip.setAttribute("aria-pressed", "true");
+}
+
+
+// ==============================
+// DATE CHIPS
 // ==============================
 
 const today = new Date();
 
 for (let i = 0; i < 30; i++) {
 
-    const date = new Date(today);
+    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
 
-    date.setDate(today.getDate() + i);
+    const chip = document.createElement("button");
 
-    const option = document.createElement("option");
+    chip.type = "button";
+    chip.className = "chip chip-date";
+    chip.dataset.date = toLocalISO(date);
+    chip.setAttribute("aria-pressed", "false");
 
-    option.value = date.toISOString().split("T")[0];
+    chip.innerHTML =
+        "<span class='chip-day'>" +
+        date.toLocaleDateString("en-US", { weekday: "short" }) +
+        "</span><span class='chip-num'>" + date.getDate() +
+        "</span><span class='chip-month'>" +
+        date.toLocaleDateString("en-US", { month: "short" }) +
+        "</span>";
 
-    option.textContent = date.toLocaleDateString("en-US", {
-        month: "long",
-        day: "numeric"
-    });
-
-    dateSelect.appendChild(option);
+    dateChips.appendChild(chip);
 }
 
+
+// ==============================
+// MOVIE
+// ==============================
 
 movies.forEach(movie => {
 
@@ -82,16 +301,20 @@ movies.forEach(movie => {
         selectedTime = null;
         selectedSeats = [];
 
+        document.querySelectorAll("#dateChips .chip, #timeChips .chip").forEach(chip => {
+            chip.classList.remove("selected");
+            chip.setAttribute("aria-pressed", "false");
+        });
+
         // Reset sections
-        dateSection.style.display = "block";
-        timeSection.style.display = "none";
-        seatSection.style.display = "none";
+        showStep("date");
+        seatError.textContent = "";
 
         // Remove old seats
         seatContainer.innerHTML = "";
 
-        // Open modal
-        modal.style.display = "block";
+        lastFocused = this;
+        openModal(modal, modalContent);
 
     });
 
@@ -106,13 +329,11 @@ backButtons.forEach(button => {
     button.addEventListener("click", function() {
 
         if (this.dataset.back === "date") {
-            timeSection.style.display = "none";
-            dateSection.style.display = "block";
+            showStep("date", true);
         }
 
         if (this.dataset.back === "time") {
-            seatSection.style.display = "none";
-            timeSection.style.display = "block";
+            showStep("time", true);
         }
 
     });
@@ -124,16 +345,21 @@ backButtons.forEach(button => {
 // DATE
 // ==============================
 
-dateSelect.addEventListener("change", function() {
+dateChips.addEventListener("click", function(event) {
 
-    selectedDate = this.value;
+    const chip = event.target.closest(".chip");
+
+    if (!chip) {
+        return;
+    }
+
+    selectedDate = chip.dataset.date;
+
+    selectChip(dateChips, chip);
 
     console.log("Date:", selectedDate);
 
-    if (selectedDate !== "") {
-        dateSection.style.display = "none";
-        timeSection.style.display = "block";
-    }
+    showStep("time", true);
 
 });
 
@@ -142,54 +368,82 @@ dateSelect.addEventListener("change", function() {
 // TIME
 // ==============================
 
-timeSelect.addEventListener("change", function() {
+timeChips.addEventListener("click", function(event) {
 
-    selectedTime = this.value;
+    const chip = event.target.closest(".chip");
+
+    if (!chip) {
+        return;
+    }
+
+    selectedTime = chip.dataset.time;
+
+    selectChip(timeChips, chip);
 
     console.log("Time:", selectedTime);
 
-    if (selectedTime !== "") {
+    showStep("seats", true);
 
-        timeSection.style.display = "none";
+    seatContainer.innerHTML = "";
 
-        seatSection.style.display = "block";
+    seatError.textContent = "";
 
-        seatContainer.innerHTML = "";
+    selectedSeats = [];
 
-        selectedSeats = [];
+    updateSeatSummary();
 
-        // Create 30 seats
-        for (let i = 1; i <= 30; i++) {
+    // Create 30 seats, 6 per row with an aisle after every third seat
+    for (let i = 1; i <= 30; i++) {
 
-            const seat = document.createElement("button");
+        const seat = document.createElement("button");
 
-            seat.classList.add("seat");
+        seat.type = "button";
 
-            seat.textContent = i;
+        seat.classList.add("seat");
 
-            seat.addEventListener("click", function() {
+        seat.textContent = i;
 
-                const seatNumber = Number(this.textContent);
+        seat.setAttribute("aria-label", "Seat " + i);
+        seat.setAttribute("aria-pressed", "false");
 
-                if (selectedSeats.includes(seatNumber)) {
+        seat.addEventListener("click", function() {
 
-                    selectedSeats = selectedSeats.filter(
-                        seat => seat !== seatNumber
-                    );
+            const seatNumber = Number(this.textContent);
 
-                } else {
+            if (selectedSeats.includes(seatNumber)) {
 
-                    selectedSeats.push(seatNumber);
+                selectedSeats = selectedSeats.filter(
+                    seat => seat !== seatNumber
+                );
 
-                }
+            } else {
 
-                this.classList.toggle("selected");
+                selectedSeats.push(seatNumber);
 
-                console.log("Selected seats:", selectedSeats);
+            }
 
-            });
+            this.classList.toggle("selected");
 
-            seatContainer.appendChild(seat);
+            this.setAttribute(
+                "aria-pressed",
+                this.classList.contains("selected")
+            );
+
+            seatError.textContent = "";
+
+            updateSeatSummary();
+
+            console.log("Selected seats:", selectedSeats);
+
+        });
+
+        seatContainer.appendChild(seat);
+
+        if (i % 6 === 3) {
+            const aisle = document.createElement("span");
+            aisle.className = "aisle";
+            aisle.setAttribute("aria-hidden", "true");
+            seatContainer.appendChild(aisle);
         }
     }
 });
@@ -204,7 +458,7 @@ reserveButton.addEventListener("click", function() {
     // Check if no seats were selected
     if (selectedSeats.length === 0) {
 
-        alert("Please select at least one seat.");
+        seatError.textContent = "Please select at least one seat.";
 
         return;
     }
@@ -223,30 +477,44 @@ reserveButton.addEventListener("click", function() {
 
     // Put reservation details into receipt
 
-    receiptMovie.textContent = "Movie: " + selectedMovie;
+    receiptMovie.textContent = selectedMovie;
 
-    receiptDate.textContent = "Date: " + selectedDate;
+    receiptDate.textContent = formatDateFull(selectedDate);
 
-    receiptTime.textContent = "Time: " + selectedTime;
+    receiptTime.textContent = selectedTime;
 
-    receiptSeats.textContent =
-        "Seats: " + selectedSeats.join(", ");
+    receiptSeats.textContent = sortedSeats().join(", ");
 
-
-    // Close reservation modal
-
-    modal.style.display = "none";
+    copyButton.textContent = "Copy code";
 
 
-    // Open receipt modal
+    // Swap the reservation modal for the receipt. Focus returns to the
+    // poster that opened the flow once the receipt is closed.
 
-    receiptModal.style.display = "block";
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
+
+    openModal(receiptModal, receiptContent);
+
+});
+
+copyButton.addEventListener("click", function() {
+
+    if (!navigator.clipboard) {
+        return;
+    }
+
+    navigator.clipboard.writeText(receiptCode.textContent).then(function() {
+        copyButton.textContent = "Copied!";
+    }).catch(function() {
+        copyButton.textContent = "Select the code to copy";
+    });
 
 });
 
 okButton.addEventListener("click", function() {
 
-    receiptModal.style.display = "none";
+    closeModal(receiptModal);
 
 });
 
@@ -265,48 +533,67 @@ function generateReservationCode() {
     return code;
 }
 
-console.log(reservationCode)
+// ==============================
+// VALIDATION
+// ==============================
 
+// BR-1: letter, digit, letter, digit, letter, digit, letter
+function isValidFormat(code) {
 
+    if (code.length !== 7) {
+        return false;
+    }
 
-function isValidFormat() {
+    for (let i = 0; i < code.length; i++) {
 
-    for (let char = 0; char < inputCode.value.length; char++) {
+        const allowed = i % 2 === 0 ? letters : numbers;
 
-        if (char % 2 == 0) {
-
-            if (letters.includes(inputCode.value[char])) {
-                console.log("is a letter(correct format)");
-            }
-            else {
-                console.log("wrong format");
-            }
-
-        }
-        else {
-
-            if (numbers.includes(inputCode.value[char])) {
-                console.log("is a number(correct format)");
-            }
-            else {
-                console.log("wrong format");
-            }
-
+        if (!allowed.includes(code[i])) {
+            return false;
         }
     }
+
+    return true;
+}
+
+function showResult(state, message) {
+
+    validationResult.dataset.state = state;
+    validationResult.textContent = message;
 }
 
 function validateReservationCode() {
-    isValidFormat();
 
-    if (inputCode.value === reservationCode) {
-        console.log("validation success\n");
-        validationResult.textContent = "Reservation code is valid!";
+    // BR-4: ignore spaces and letter case
+    const code = inputCode.value.trim().toUpperCase();
+
+    if (code === "") {
+        showResult("empty", "Enter your reservation code.");
+        return;
+    }
+
+    if (!isValidFormat(code)) {
+        showResult("error", "That doesn't look right. Codes look like A1B2C3D.");
+        return;
+    }
+
+    if (!reservationCode) {
+        showResult("error", "No reservation has been made yet.");
+        return;
+    }
+
+    if (code === reservationCode) {
+        showResult("success", "Reservation code is valid!");
     } else {
-        console.log("validation failed\n");
-        validationResult.textContent = "Invalid reservation code.";
+        showResult("error", "No reservation found for that code.");
     }
 }
 
-validateButton.addEventListener("click", validateReservationCode);
+document.getElementById("validatorForm").addEventListener("submit", function(event) {
+    event.preventDefault();
+    validateReservationCode();
+});
 
+inputCode.addEventListener("input", function() {
+    showResult("", "");
+});
