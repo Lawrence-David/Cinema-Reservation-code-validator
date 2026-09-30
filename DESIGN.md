@@ -163,6 +163,7 @@ Structure stays the same; presentation and interaction change.
 | 3 | Seat map (screen, aisle, legend, live summary), ticket-style receipt with copy button |
 | 4 | Validator section: labeled input, five result states, trim + uppercase normalization |
 | 5 | Accessibility and cross-size pass (below) |
+| 6 | Modal fade (opacity + slight rise, bottom-sheet slide on phones, off for `prefers-reduced-motion`) and light theme: token overrides under `:root[data-theme="light"]`, header toggle, choice saved in `localStorage`, follows the OS until the user picks |
 
 ### Slice 5 findings and fixes
 - Contrast: white on the old accent was exactly 4.5:1 and failed on hover (3.3:1). Accent is now `#2563eb` (5.2:1), button hover uses `--accent-strong` `#1d4fd8` (6.6:1).
@@ -176,5 +177,8 @@ Structure stays the same; presentation and interaction change.
 - R1: only the last code issued in the session validates.
 - R3: no taken seats; there is no shared availability without a backend.
 - R4: movie genres are placeholders ("Action" for all).
-- Modal open/close has no animation; add with `prefers-reduced-motion` respected if wanted.
 - Not tested with a real screen reader (NVDA/VoiceOver); checks so far are programmatic plus keyboard.
+
+### Theme notes
+- The theme is set by a tiny inline script in `<head>` before first paint, so there is no flash. It reads `localStorage.theme`, else the OS setting.
+- Light palette is contrast-checked: text 5.5:1+, control borders 3.2:1+, success/error text 5.2:1+ on their tinted boxes. Semantic colors (header, ticket notches, screen glow, focus glow, result tints) are tokens, so a new theme is one override block.

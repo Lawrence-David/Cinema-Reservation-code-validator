@@ -597,3 +597,54 @@ document.getElementById("validatorForm").addEventListener("submit", function(eve
 inputCode.addEventListener("input", function() {
     showResult("", "");
 });
+
+
+// ==============================
+// THEME (dark / light)
+// ==============================
+
+const themeToggle = document.getElementById("themeToggle");
+const lightQuery = window.matchMedia("(prefers-color-scheme: light)");
+
+function setTheme(theme) {
+
+    document.documentElement.dataset.theme = theme;
+
+    themeToggle.setAttribute(
+        "aria-label",
+        theme === "light" ? "Switch to dark mode" : "Switch to light mode"
+    );
+}
+
+function savedTheme() {
+
+    try {
+        return localStorage.getItem("theme");
+    } catch (error) {
+        return null;
+    }
+}
+
+// The inline script in <head> already chose the theme; sync the button label
+setTheme(document.documentElement.dataset.theme);
+
+themeToggle.addEventListener("click", function() {
+
+    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+
+    setTheme(next);
+
+    try {
+        localStorage.setItem("theme", next);
+    } catch (error) {
+        // private mode: the choice just lasts for this visit
+    }
+});
+
+// Follow the operating system until the user picks a theme themselves
+lightQuery.addEventListener("change", function(event) {
+
+    if (!savedTheme()) {
+        setTheme(event.matches ? "light" : "dark");
+    }
+});

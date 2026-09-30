@@ -16,6 +16,13 @@
     --accent-strong: #1d4fd8; /* button hover fill (white text 6.6:1) */
     --success: #3ddc97;
     --error: #ff6b6b;
+    --success-bg: rgba(61, 220, 151, 0.12);
+    --error-bg: rgba(255, 107, 107, 0.12);
+    --header-bg: rgba(11, 13, 18, 0.85);
+    --notch: #0b0d12; /* ticket cut-outs: matches what shows behind the receipt */
+    --screen-glow: rgba(85, 136, 255, 0.28);
+    --focus-glow: rgba(85, 136, 255, 0.35);
+    color-scheme: dark;
 
     /* type */
     --font-display: "Bebas Neue", Impact, "Arial Narrow", sans-serif;
@@ -34,11 +41,34 @@
     --radius: 12px;
     --radius-sm: 8px;
     --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    --dur-modal: 220ms;
     --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
     --dur: 180ms;
 
     --page-max: 1200px;
     --gutter: clamp(1rem, 4vw, 2rem);
+}
+
+/* Light theme. Every pair below is contrast-checked (text 5.5:1+, controls 3:1+). */
+:root[data-theme="light"] {
+    --bg: #f4f6fb;
+    --surface: #ffffff;
+    --surface-2: #eceff6;
+    --border: #dfe3ec;
+    --control-border: #7b859a;
+    --text: #12151c;
+    --text-muted: #546073;
+    --accent-hover: #1d4fd8; /* rings + accent text on light */
+    --success: #08694a;
+    --error: #b3202a;
+    --success-bg: rgba(8, 105, 74, 0.1);
+    --error-bg: rgba(179, 32, 42, 0.08);
+    --header-bg: rgba(244, 246, 251, 0.85);
+    --notch: #45464a;
+    --screen-glow: rgba(37, 99, 235, 0.22);
+    --focus-glow: rgba(37, 99, 235, 0.3);
+    --shadow: 0 10px 30px rgba(20, 30, 60, 0.22);
+    color-scheme: light;
 }
 
 /* ==============================
@@ -106,7 +136,7 @@ header {
     align-items: center;
     justify-content: space-between;
     padding: var(--space-3) var(--gutter);
-    background: rgba(11, 13, 18, 0.85);
+    background: var(--header-bg);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--border);
     color: var(--text);
@@ -130,6 +160,39 @@ header {
     font-size: 2rem;
     letter-spacing: 0.06em;
     line-height: 1;
+}
+
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--control-border);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    transition: background var(--dur) var(--ease);
+}
+
+.theme-toggle:hover {
+    background: var(--surface-2);
+}
+
+.theme-toggle svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* show the icon for the theme you would switch to */
+.theme-toggle .icon-moon,
+:root[data-theme="light"] .theme-toggle .icon-sun {
+    display: none;
+}
+
+:root[data-theme="light"] .theme-toggle .icon-moon {
+    display: block;
 }
 
 /* ==============================
@@ -252,7 +315,7 @@ body.modal-open {
 }
 
 .modal {
-    display: none;
+    display: flex;
     position: fixed;
     inset: 0;
     z-index: 20;
@@ -261,10 +324,21 @@ body.modal-open {
     padding: var(--space-4);
     background: rgba(0, 0, 0, 0.72);
     backdrop-filter: blur(4px);
+
+    /* fade: the backdrop fades and the dialog also rises slightly.
+       visibility flips after the fade-out so a closed modal is unfocusable */
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity var(--dur-modal) var(--ease),
+                visibility 0s linear var(--dur-modal);
 }
 
 .modal.open {
-    display: flex;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition-delay: 0s;
 }
 
 .modal-content,
@@ -279,6 +353,13 @@ body.modal-open {
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     outline: none;
+    transform: translateY(16px) scale(0.98);
+    transition: transform var(--dur-modal) var(--ease);
+}
+
+.modal.open .modal-content,
+.modal.open .receipt {
+    transform: none;
 }
 
 .modal-content {
@@ -497,7 +578,7 @@ body.modal-open {
     padding-top: var(--space-2);
     border-top: 4px solid var(--accent-hover);
     border-radius: 50% 50% 0 0 / 14px 14px 0 0;
-    background: linear-gradient(to bottom, rgba(85, 136, 255, 0.28), transparent 70%);
+    background: linear-gradient(to bottom, var(--screen-glow), transparent 70%);
     color: var(--text-muted);
     font-size: 0.6875rem;
     letter-spacing: 0.3em;
@@ -648,7 +729,7 @@ body.modal-open {
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    background: var(--bg);
+    background: var(--notch);
     box-shadow: inset 0 0 0 1px var(--border);
 }
 
@@ -707,6 +788,7 @@ body.modal-open {
 
     .modal-content,
     .receipt {
+        transform: translateY(40px);
         max-width: none;
         max-height: 92dvh;
         border-radius: var(--radius) var(--radius) 0 0;
@@ -725,7 +807,11 @@ body.modal-open {
 @media (prefers-reduced-motion: reduce) {
     .chip,
     .btn,
-    .modal-close {
+    .modal-close,
+    .theme-toggle,
+    .modal,
+    .modal-content,
+    .receipt {
         transition: none;
     }
 }
@@ -797,7 +883,7 @@ body.modal-open {
 #inputCode:focus-visible {
     outline: none;
     border-color: var(--accent-hover);
-    box-shadow: 0 0 0 3px rgba(85, 136, 255, 0.35);
+    box-shadow: 0 0 0 3px var(--focus-glow);
 }
 
 #validateButton {
@@ -832,13 +918,13 @@ body.modal-open {
 }
 
 #validationResult[data-state="success"] {
-    background: rgba(61, 220, 151, 0.12);
+    background: var(--success-bg);
     border: 1px solid var(--success);
     color: var(--success);
 }
 
 #validationResult[data-state="error"] {
-    background: rgba(255, 107, 107, 0.12);
+    background: var(--error-bg);
     border: 1px solid var(--error);
     color: var(--error);
 }
