@@ -127,7 +127,7 @@
     <section class="validator" aria-labelledby="validatorTitle">
 
         <h2 id="validatorTitle" class="section-title">Validate your ticket</h2>
-        <p class="section-sub">Enter the 7-character code from your receipt, for example <span class="code-example">A1B2C3D</span>.</p>
+        <p class="section-sub">Enter the 7-character code from your receipt, for example <span class="code-example">A1B2C3D</span>. The automaton reads it one symbol at a time.</p>
 
         <form id="validatorForm" class="validator-form" novalidate>
             <label for="inputCode" class="validator-label">Reservation code</label>
@@ -139,12 +139,64 @@
             </div>
         </form>
 
+        <details class="testcases">
+            <summary>Demo inputs</summary>
+            <div class="tc-group">
+                <span class="tc-title">Should accept</span>
+                <div id="tcAccepted" class="tc-chips"></div>
+            </div>
+            <div class="tc-group">
+                <span class="tc-title">Should reject</span>
+                <div id="tcRejected" class="tc-chips"></div>
+            </div>
+        </details>
+
+        <div id="simResults" class="sim-results" hidden>
+
+            <div class="sim-grid">
+
+                <div id="verdictCard" class="sim-card verdict" aria-live="polite">
+                    <p class="sim-card-title">Automaton result</p>
+                    <p id="verdictValue" class="verdict-value"></p>
+                    <dl class="verdict-facts">
+                        <div><dt>Input</dt><dd id="verdictInput" class="mono"></dd></div>
+                        <div><dt>Final state</dt><dd id="verdictFinal" class="mono"></dd></div>
+                        <div><dt>Symbols read</dt><dd id="verdictRead"></dd></div>
+                    </dl>
+                    <p id="verdictReason" class="verdict-reason"></p>
+                    <ol id="inputTape" class="tape" aria-label="Input, one symbol per position"></ol>
+                </div>
+
+                <div class="sim-card">
+                    <p class="sim-card-title">State transitions</p>
+                    <div class="table-scroll">
+                        <table class="trace-table">
+                            <thead>
+                                <tr><th scope="col">Step</th><th scope="col">Symbol</th><th scope="col">From</th><th scope="col">To</th></tr>
+                            </thead>
+                            <tbody id="traceBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="sim-card">
+                <p class="sim-card-title">DFA path</p>
+                <div class="diagram-scroll">
+                    <svg id="dfaDiagram" class="dfa" viewBox="0 0 900 270" role="img" aria-label="DFA diagram"></svg>
+                </div>
+                <ul class="dfa-legend" aria-hidden="true">
+                    <li><span class="lg lg-path"></span>Path taken</li>
+                    <li><span class="lg lg-dead"></span>Wrong symbol, to dead state q8</li>
+                    <li><span class="lg lg-accept"></span>q7 accepting state</li>
+                </ul>
+            </div>
+
+        </div>
+
         <p id="validationResult" role="status" aria-live="polite"></p>
 
-    </section>
-
-    <section class="transitions" aria-label="State transitions">
-        <p id="transitionText"></p>
     </section>
 
     </main>

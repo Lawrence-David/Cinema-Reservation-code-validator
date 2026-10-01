@@ -53,7 +53,7 @@ No login, no roles. Authorization is out of scope.
 - BR-1 Code format: `L D L D L D L` (letter, digit alternating, 7 chars, uppercase letters `A–Z`, digits `0–9`).
 - BR-2 A reservation requires movie + date + time + at least one seat.
 - BR-3 A code is valid only if it equals the most recently issued code (current behavior).
-- BR-4 Code entry is trimmed and uppercased before comparison. **Implemented (slice 4).**
+- BR-4 ~~Code entry is trimmed and uppercased~~ **Superseded:** input is read exactly as typed, so lowercase letters and spaces are outside Σ and are rejected, as the language definition requires.
 - BR-5 (proposed) A code should embed no personal data.
 
 ## 4. HOW
@@ -182,3 +182,19 @@ Structure stays the same; presentation and interaction change.
 ### Theme notes
 - The theme is set by a tiny inline script in `<head>` before first paint, so there is no flash. It reads `localStorage.theme`, else the OS setting.
 - Light palette is contrast-checked: text 5.5:1+, control borders 3.2:1+, success/error text 5.2:1+ on their tinted boxes. Semantic colors (header, ticket notches, screen glow, focus glow, result tints) are tokens, so a new theme is one override block.
+
+## 11. Automaton simulator display
+
+The DFA (`transitions`, `runDFA()`, added by Lawrence-David) decides whether the input is in the language. The page now shows that decision separately from the reservation lookup, so a valid code with no booking no longer shows an error next to "ACCEPTED".
+
+| Course requirement | Shown as |
+|---|---|
+| Accept user input | Code field; Enter or Validate code |
+| Check symbols are in Σ | First symbol outside {A-Z, 0-9} is marked on the input tape; final state "None (not run)" |
+| Process symbol by symbol | Input tape, one cell per position, the failing position in red |
+| Display the state transitions | Step / Symbol / From / To table; rows into q8 in red |
+| Identify the final state | "Final state" in the result card and the highlighted state in the diagram |
+| ACCEPTED or REJECTED | Large verdict with a plain-language reason |
+| Multiple test cases | Type and validate as many inputs as needed; a collapsed "Demo inputs" panel holds the report's 21 test strings (10 accept, 11 reject incl. the empty string) as one-click buttons for the live demo |
+
+The DFA diagram is drawn from the same `transitions` table the simulator runs, so the picture cannot drift from the logic.
