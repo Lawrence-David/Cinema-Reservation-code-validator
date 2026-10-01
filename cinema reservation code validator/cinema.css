@@ -912,7 +912,7 @@ body.modal-open {
 
 #validationResult {
     min-height: 3.25rem;
-    margin: var(--space-4) 0 0;
+    margin: var(--space-4) auto 0;
     padding: var(--space-3) var(--space-4);
     border-radius: var(--radius-sm);
     font-size: 1rem;
