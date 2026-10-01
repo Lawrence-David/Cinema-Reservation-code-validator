@@ -39,7 +39,6 @@ const numbers = "0123456789";
 let reservationCode;
 
 const inputCode = document.getElementById("inputCode");
-const validateButton = document.getElementById("validateButton");
 
 const validationResult = document.getElementById("validationResult");
 
@@ -58,7 +57,8 @@ let lastFocused = null;
 // MODAL HELPERS
 // ==============================
 
-const steps = {
+// The three steps of the reservation dialog, in order
+const stepSections = {
     date: dateSection,
     time: timeSection,
     seats: seatSection
@@ -66,11 +66,11 @@ const steps = {
 
 function showStep(name, moveFocus) {
 
-    Object.entries(steps).forEach(([key, section]) => {
+    Object.entries(stepSections).forEach(([key, section]) => {
         section.hidden = key !== name;
     });
 
-    const current = Object.keys(steps).indexOf(name);
+    const current = Object.keys(stepSections).indexOf(name);
 
     stepItems.forEach((item, index) => {
         item.classList.toggle("done", index < current);
@@ -87,7 +87,7 @@ function showStep(name, moveFocus) {
     // The chip or button that was focused is now hidden, so hand focus to the
     // new step's heading (keeps keyboard and screen-reader users in the dialog)
     if (moveFocus) {
-        steps[name].querySelector("h3").focus();
+        stepSections[name].querySelector("h3").focus();
     }
 }
 
@@ -96,7 +96,7 @@ function updateSummary() {
     const parts = [];
 
     if (selectedDate) {
-        parts.push(formatDateLong(selectedDate));
+        parts.push(formatDate(selectedDate, DATE_SHORT));
     }
 
     if (selectedTime) {
@@ -104,33 +104,6 @@ function updateSummary() {
     }
 
     selectionSummary.textContent = parts.join("  ·  ");
-}
-
-function sortedSeats() {
-    return [...selectedSeats].sort((a, b) => a - b);
-}
-
-function updateSeatSummary() {
-
-    if (selectedSeats.length === 0) {
-        seatSummary.textContent = "No seats selected";
-    } else {
-        seatSummary.textContent =
-            (selectedSeats.length === 1 ? "Seat " : "Seats ") +
-            sortedSeats().join(", ");
-    }
-}
-
-function formatDateFull(iso) {
-
-    const [year, month, day] = iso.split("-").map(Number);
-
-    return new Date(year, month - 1, day).toLocaleDateString("en-US", {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-        year: "numeric"
-    });
 }
 
 function openModal(element, content) {
@@ -142,10 +115,15 @@ function openModal(element, content) {
     content.focus();
 }
 
-function closeModal(element) {
+function hideModal(element) {
 
     element.classList.remove("open");
     element.setAttribute("aria-hidden", "true");
+}
+
+function closeModal(element) {
+
+    hideModal(element);
 
     if (!document.querySelector(".modal.open")) {
         document.body.classList.remove("modal-open");
@@ -222,6 +200,9 @@ closeButton.addEventListener("click", function() {
 // DATE FORMATTING (local time)
 // ==============================
 
+const DATE_SHORT = { weekday: "short", month: "short", day: "numeric" };
+const DATE_WITH_YEAR = { ...DATE_SHORT, year: "numeric" };
+
 function toLocalISO(date) {
 
     const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -230,38 +211,36 @@ function toLocalISO(date) {
     return date.getFullYear() + "-" + month + "-" + day;
 }
 
-function formatDateLong(iso) {
+// Build the date from its parts so it stays in local time (not UTC)
+function formatDate(iso, options) {
 
     const [year, month, day] = iso.split("-").map(Number);
 
-    return new Date(year, month - 1, day).toLocaleDateString("en-US", {
-        weekday: "short",
-        month: "short",
-        day: "numeric"
+    return new Date(year, month - 1, day).toLocaleDateString("en-US", options);
+}
+
+
+// ==============================
+// CHIPS (date + time)
+// ==============================
+
+function clearChips(container) {
+
+    container.querySelectorAll(".chip").forEach(chip => {
+        chip.classList.remove("selected");
+        chip.setAttribute("aria-pressed", "false");
     });
 }
 
 function selectChip(container, chip) {
 
-    container.querySelectorAll(".chip").forEach(item => {
-        item.classList.remove("selected");
-        item.setAttribute("aria-pressed", "false");
-    });
+    clearChips(container);
 
     chip.classList.add("selected");
     chip.setAttribute("aria-pressed", "true");
 }
 
-
-// ==============================
-// DATE CHIPS
-// ==============================
-
-const today = new Date();
-
-for (let i = 0; i < 30; i++) {
-
-    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
+function createDateChip(date) {
 
     const chip = document.createElement("button");
 
@@ -278,12 +257,103 @@ for (let i = 0; i < 30; i++) {
         date.toLocaleDateString("en-US", { month: "short" }) +
         "</span>";
 
-    dateChips.appendChild(chip);
+    return chip;
+}
+
+// One chip per day, starting today, for the next 30 days
+const today = new Date();
+
+for (let i = 0; i < 30; i++) {
+    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
+    dateChips.appendChild(createDateChip(date));
 }
 
 
 // ==============================
-// MOVIE
+// SEATS
+// ==============================
+
+const SEAT_COUNT = 30;
+const SEATS_PER_ROW = 6;
+
+function sortedSeats() {
+    return [...selectedSeats].sort((a, b) => a - b);
+}
+
+function updateSeatSummary() {
+
+    if (selectedSeats.length === 0) {
+        seatSummary.textContent = "No seats selected";
+    } else {
+        seatSummary.textContent =
+            (selectedSeats.length === 1 ? "Seat " : "Seats ") +
+            sortedSeats().join(", ");
+    }
+}
+
+function resetSeats() {
+
+    seatContainer.innerHTML = "";
+    seatError.textContent = "";
+    selectedSeats = [];
+
+    updateSeatSummary();
+}
+
+function toggleSeat(seat) {
+
+    const seatNumber = Number(seat.textContent);
+
+    if (selectedSeats.includes(seatNumber)) {
+        selectedSeats = selectedSeats.filter(number => number !== seatNumber);
+    } else {
+        selectedSeats.push(seatNumber);
+    }
+
+    seat.classList.toggle("selected");
+    seat.setAttribute("aria-pressed", seat.classList.contains("selected"));
+
+    seatError.textContent = "";
+
+    updateSeatSummary();
+}
+
+function createSeat(number) {
+
+    const seat = document.createElement("button");
+
+    seat.type = "button";
+    seat.className = "seat";
+    seat.textContent = number;
+    seat.setAttribute("aria-label", "Seat " + number);
+    seat.setAttribute("aria-pressed", "false");
+
+    seat.addEventListener("click", function() {
+        toggleSeat(this);
+    });
+
+    return seat;
+}
+
+// Rows of 6 seats with an aisle after every third seat
+function renderSeats() {
+
+    for (let i = 1; i <= SEAT_COUNT; i++) {
+
+        seatContainer.appendChild(createSeat(i));
+
+        if (i % SEATS_PER_ROW === SEATS_PER_ROW / 2) {
+            const aisle = document.createElement("span");
+            aisle.className = "aisle";
+            aisle.setAttribute("aria-hidden", "true");
+            seatContainer.appendChild(aisle);
+        }
+    }
+}
+
+
+// ==============================
+// RESERVATION FLOW
 // ==============================
 
 movies.forEach(movie => {
@@ -291,59 +361,29 @@ movies.forEach(movie => {
     movie.addEventListener("click", function() {
 
         selectedMovie = this.dataset.movie;
-
         modalTitle.textContent = selectedMovie;
-
-        console.log("Movie:", selectedMovie);
 
         // Reset previous choices
         selectedDate = null;
         selectedTime = null;
-        selectedSeats = [];
 
-        document.querySelectorAll("#dateChips .chip, #timeChips .chip").forEach(chip => {
-            chip.classList.remove("selected");
-            chip.setAttribute("aria-pressed", "false");
-        });
+        clearChips(dateChips);
+        clearChips(timeChips);
+        resetSeats();
 
-        // Reset sections
         showStep("date");
-        seatError.textContent = "";
-
-        // Remove old seats
-        seatContainer.innerHTML = "";
 
         lastFocused = this;
         openModal(modal, modalContent);
-
     });
-
 });
 
-// ==============================
-// BACK BUTTON
-// ==============================
-
+// Each back button names the step it returns to (data-back="date" or "time")
 backButtons.forEach(button => {
-
     button.addEventListener("click", function() {
-
-        if (this.dataset.back === "date") {
-            showStep("date", true);
-        }
-
-        if (this.dataset.back === "time") {
-            showStep("time", true);
-        }
-
+        showStep(this.dataset.back, true);
     });
-
 });
-
-
-// ==============================
-// DATE
-// ==============================
 
 dateChips.addEventListener("click", function(event) {
 
@@ -354,19 +394,10 @@ dateChips.addEventListener("click", function(event) {
     }
 
     selectedDate = chip.dataset.date;
-
     selectChip(dateChips, chip);
 
-    console.log("Date:", selectedDate);
-
     showStep("time", true);
-
 });
-
-
-// ==============================
-// TIME
-// ==============================
 
 timeChips.addEventListener("click", function(event) {
 
@@ -377,75 +408,12 @@ timeChips.addEventListener("click", function(event) {
     }
 
     selectedTime = chip.dataset.time;
-
     selectChip(timeChips, chip);
-
-    console.log("Time:", selectedTime);
 
     showStep("seats", true);
 
-    seatContainer.innerHTML = "";
-
-    seatError.textContent = "";
-
-    selectedSeats = [];
-
-    updateSeatSummary();
-
-    // Create 30 seats, 6 per row with an aisle after every third seat
-    for (let i = 1; i <= 30; i++) {
-
-        const seat = document.createElement("button");
-
-        seat.type = "button";
-
-        seat.classList.add("seat");
-
-        seat.textContent = i;
-
-        seat.setAttribute("aria-label", "Seat " + i);
-        seat.setAttribute("aria-pressed", "false");
-
-        seat.addEventListener("click", function() {
-
-            const seatNumber = Number(this.textContent);
-
-            if (selectedSeats.includes(seatNumber)) {
-
-                selectedSeats = selectedSeats.filter(
-                    seat => seat !== seatNumber
-                );
-
-            } else {
-
-                selectedSeats.push(seatNumber);
-
-            }
-
-            this.classList.toggle("selected");
-
-            this.setAttribute(
-                "aria-pressed",
-                this.classList.contains("selected")
-            );
-
-            seatError.textContent = "";
-
-            updateSeatSummary();
-
-            console.log("Selected seats:", selectedSeats);
-
-        });
-
-        seatContainer.appendChild(seat);
-
-        if (i % 6 === 3) {
-            const aisle = document.createElement("span");
-            aisle.className = "aisle";
-            aisle.setAttribute("aria-hidden", "true");
-            seatContainer.appendChild(aisle);
-        }
-    }
+    resetSeats();
+    renderSeats();
 });
 
 
@@ -455,47 +423,25 @@ timeChips.addEventListener("click", function(event) {
 
 reserveButton.addEventListener("click", function() {
 
-    // Check if no seats were selected
     if (selectedSeats.length === 0) {
-
         seatError.textContent = "Please select at least one seat.";
-
         return;
     }
 
-    // Only continue if a seat was selected
-
     reservationCode = generateReservationCode();
 
-    console.log("Reservation Code:", reservationCode);
-
-
-    // Put reservation code into receipt
-
     receiptCode.textContent = reservationCode;
-
-
-    // Put reservation details into receipt
-
     receiptMovie.textContent = selectedMovie;
-
-    receiptDate.textContent = formatDateFull(selectedDate);
-
+    receiptDate.textContent = formatDate(selectedDate, DATE_WITH_YEAR);
     receiptTime.textContent = selectedTime;
-
     receiptSeats.textContent = sortedSeats().join(", ");
 
     copyButton.textContent = "Copy code";
 
-
     // Swap the reservation modal for the receipt. Focus returns to the
     // poster that opened the flow once the receipt is closed.
-
-    modal.classList.remove("open");
-    modal.setAttribute("aria-hidden", "true");
-
+    hideModal(modal);
     openModal(receiptModal, receiptContent);
-
 });
 
 copyButton.addEventListener("click", function() {
@@ -509,37 +455,36 @@ copyButton.addEventListener("click", function() {
     }).catch(function() {
         copyButton.textContent = "Select the code to copy";
     });
-
 });
 
 okButton.addEventListener("click", function() {
-
     closeModal(receiptModal);
-
 });
 
+function randomFrom(chars) {
+    return chars[Math.floor(Math.random() * chars.length)];
+}
+
+// LDLDLDL: a letter at positions 1, 3, 5, 7 and a digit at 2, 4, 6
 function generateReservationCode() {
 
     let code = "";
 
-    code += letters[Math.floor(Math.random() * letters.length)];
-    code += numbers[Math.floor(Math.random() * numbers.length)];
-    code += letters[Math.floor(Math.random() * letters.length)];
-    code += numbers[Math.floor(Math.random() * numbers.length)];
-    code += letters[Math.floor(Math.random() * letters.length)];
-    code += numbers[Math.floor(Math.random() * numbers.length)];
-    code += letters[Math.floor(Math.random() * letters.length)];
+    for (let i = 0; i < 7; i++) {
+        code += randomFrom(i % 2 === 0 ? letters : numbers);
+    }
 
     return code;
 }
+
 
 // ==============================
 // VALIDATION
 // ==============================
 
-
 const START_STATE = "q0";
 const ACCEPT_STATES = ["q7"];
+const DEAD_STATE = "q8";
 
 // One entry per arrow in the diagram
 const transitions = {
@@ -563,14 +508,13 @@ function symbolGroup(ch) {
 
 function runDFA(input) {
 
-    const str = input
     const log = [];
     const steps = [];
     let state = START_STATE;
 
     // Requirement 2: every symbol must belong to the alphabet
-    for (let i = 0; i < str.length; i++) {
-        const ch = str[i];
+    for (let i = 0; i < input.length; i++) {
+        const ch = input[i];
         if (symbolGroup(ch) === null) {
             return {
                 log: ["Invalid symbol '" + ch + "' (not in the alphabet A-Z, 0-9)"],
@@ -583,7 +527,7 @@ function runDFA(input) {
     }
 
     // Requirements 3 and 4: process symbol by symbol, record each transition
-    for (const ch of str) {
+    for (const ch of input) {
         const next = transitions[state][symbolGroup(ch)];
         log.push(state + " --" + ch + "--> " + next);
         steps.push({ from: state, symbol: ch, to: next });
@@ -600,12 +544,15 @@ function runDFA(input) {
     };
 }
 
+// Index of the first move into the dead state, or -1 if there is none
+function firstDeadStep(result) {
+    return result.steps.findIndex(step => step.to === DEAD_STATE);
+}
+
 
 // ==============================
 // SIMULATOR DISPLAY
 // ==============================
-
-const DEAD_STATE = "q8";
 
 // Test cases from the report (Chapter 2, C), plus the empty string
 const TEST_CASES = {
@@ -652,13 +599,13 @@ function explain(input, result) {
         return "All 7 symbols matched the letter-digit pattern and the automaton ended in q7, the accepting state.";
     }
 
-    const deadIndex = result.steps.findIndex(step => step.to === DEAD_STATE);
+    const deadIndex = firstDeadStep(result);
 
     if (deadIndex !== -1) {
 
         const step = result.steps[deadIndex];
 
-        if (step.from === "q7") {
+        if (ACCEPT_STATES.includes(step.from)) {
             return "The first 7 symbols formed a valid code, but symbol " + (deadIndex + 1) +
                 " ('" + step.symbol + "') is extra. q7 has no outgoing path except to the dead state q8.";
         }
@@ -673,26 +620,31 @@ function explain(input, result) {
         " in " + result.final + ", which is not an accepting state. A valid code has exactly 7.";
 }
 
+// ok = read normally, bad = where it failed, after/skipped = never mattered
+function tapeStatus(index, result, deadIndex) {
+
+    if (result.invalid) {
+        return index === result.invalid.index ? "bad" : "skipped";
+    }
+
+    if (deadIndex === -1 || index < deadIndex) {
+        return "ok";
+    }
+
+    return index === deadIndex ? "bad" : "after";
+}
+
 function renderTape(input, result) {
 
     inputTape.innerHTML = "";
 
-    const deadIndex = result.steps.findIndex(step => step.to === DEAD_STATE);
+    const deadIndex = firstDeadStep(result);
 
     [...input].forEach((ch, i) => {
 
         const cell = document.createElement("li");
-        let status = "ok";
 
-        if (result.invalid) {
-            status = i === result.invalid.index ? "bad" : "skipped";
-        } else if (deadIndex !== -1 && i === deadIndex) {
-            status = "bad";
-        } else if (deadIndex !== -1 && i > deadIndex) {
-            status = "after";
-        }
-
-        cell.className = "tape-cell tape-" + status;
+        cell.className = "tape-cell tape-" + tapeStatus(i, result, deadIndex);
         cell.innerHTML = "<span class='tape-pos'>" + (i + 1) + "</span><span class='tape-sym'></span>";
         cell.querySelector(".tape-sym").textContent = displaySymbol(ch);
 
@@ -702,39 +654,45 @@ function renderTape(input, result) {
     inputTape.hidden = input === "";
 }
 
-function renderTrace(input, result) {
+function tableRow(cells) {
+
+    const row = document.createElement("tr");
+
+    cells.forEach(text => {
+        const cell = document.createElement("td");
+        cell.textContent = text;
+        row.appendChild(cell);
+    });
+
+    return row;
+}
+
+function renderTrace(result) {
 
     traceBody.innerHTML = "";
 
     if (result.steps.length === 0) {
 
-        const row = document.createElement("tr");
-        const cell = document.createElement("td");
+        const row = tableRow([
+            result.invalid
+                ? "No transitions: the input contains a symbol outside the alphabet."
+                : "No transitions: no symbols were read."
+        ]);
 
-        cell.colSpan = 4;
-        cell.className = "trace-empty";
-        cell.textContent = result.invalid
-            ? "No transitions: the input contains a symbol outside the alphabet."
-            : "No transitions: no symbols were read.";
+        row.firstChild.colSpan = 4;
+        row.firstChild.className = "trace-empty";
 
-        row.appendChild(cell);
         traceBody.appendChild(row);
         return;
     }
 
     result.steps.forEach((step, i) => {
 
-        const row = document.createElement("tr");
+        const row = tableRow([String(i + 1), step.symbol, step.from, step.to]);
 
         if (step.to === DEAD_STATE) {
             row.className = "to-dead";
         }
-
-        [String(i + 1), step.symbol, step.from, step.to].forEach(text => {
-            const cell = document.createElement("td");
-            cell.textContent = text;
-            row.appendChild(cell);
-        });
 
         traceBody.appendChild(row);
     });
@@ -762,6 +720,15 @@ function svg(tag, attrs, parent) {
     if (parent) {
         parent.appendChild(el);
     }
+
+    return el;
+}
+
+function svgText(text, attrs, parent) {
+
+    const el = svg("text", attrs, parent);
+
+    el.textContent = text;
 
     return el;
 }
@@ -803,29 +770,26 @@ function drawDiagram() {
         class: "dfa-edge dfa-start", "marker-end": "url(#arrow)"
     }, edges);
 
-    // every transition, straight from the table
+    // every transition, straight from the table (the dead state's loop is drawn below)
     Object.entries(transitions).forEach(([from, row]) => {
+
+        if (from === DEAD_STATE) {
+            return;
+        }
 
         Object.entries(row).forEach(([group, to]) => {
 
-            if (from === DEAD_STATE) {
+            if (to === DEAD_STATE) {
+                edgeLine(from, to, "dfa-edge dfa-edge-dead", edges);
                 return;
             }
 
-            const toDead = to === DEAD_STATE;
-            const line = edgeLine(from, to, "dfa-edge" + (toDead ? " dfa-edge-dead" : ""), edges);
+            edgeLine(from, to, "dfa-edge", edges);
 
-            if (!toDead) {
-                const a = POS[from];
-                const b = POS[to];
-                const label = svg("text", {
-                    x: (a.x + b.x) / 2, y: a.y - 12,
-                    class: "dfa-label", "text-anchor": "middle"
-                }, edges);
-                label.textContent = group;
-            }
-
-            line.dataset.group = group;
+            svgText(group, {
+                x: (POS[from].x + POS[to].x) / 2, y: POS[from].y - 12,
+                class: "dfa-label", "text-anchor": "middle"
+            }, edges);
         });
     });
 
@@ -838,8 +802,7 @@ function drawDiagram() {
         class: "dfa-edge dfa-edge-dead", "data-edge": DEAD_STATE + ">" + DEAD_STATE,
         fill: "none", "marker-end": "url(#arrow)"
     }, edges);
-    const loopLabel = svg("text", { x: d.x + 44, y: d.y + 52, class: "dfa-label" }, edges);
-    loopLabel.textContent = "A-Z, 0-9";
+    svgText("A-Z, 0-9", { x: d.x + 44, y: d.y + 52, class: "dfa-label" }, edges);
 
     // states
     [...CHAIN, DEAD_STATE].forEach(name => {
@@ -853,8 +816,7 @@ function drawDiagram() {
             svg("circle", { cx: p.x, cy: p.y, r: R - 5, class: "dfa-inner" }, group);
         }
 
-        const text = svg("text", { x: p.x, y: p.y + 5, "text-anchor": "middle" }, group);
-        text.textContent = name;
+        svgText(name, { x: p.x, y: p.y + 5, "text-anchor": "middle" }, group);
     });
 }
 
@@ -906,34 +868,19 @@ function showResult(state, message) {
     validationResult.textContent = message;
 }
 
-function validateReservationCode() {
-
-    const code = inputCode.value;
-
-    const result = runDFA(code);
+function logToConsole(code, result) {
 
     console.log("Input:", code);
     result.log.forEach(line => console.log(line));
     console.log("Final state:", result.final);
     console.log(result.accepted ? "ACCEPTED" : "REJECTED");
     console.log("-----");
+}
 
-    // Automaton verdict (requirements 2 to 6)
-    verdictCard.dataset.verdict = result.accepted ? "accepted" : "rejected";
-    verdictValue.textContent = result.accepted ? "ACCEPTED" : "REJECTED";
-    verdictInput.textContent = displayString(code);
-    verdictFinal.textContent = result.invalid ? "None (not run)" : result.final;
-    verdictRead.textContent = result.steps.length + " of " + code.length;
-    verdictReason.textContent = explain(code, result);
+// Reservation lookup is separate from the automaton: the DFA only decides
+// whether the string is in the language, not whether a booking exists
+function showLookup(code, result) {
 
-    renderTape(code, result);
-    renderTrace(code, result);
-    highlightDiagram(result);
-
-    simResults.hidden = false;
-
-    // Reservation lookup is separate from the automaton: the DFA only decides
-    // whether the string is in the language, not whether a booking exists
     if (!result.accepted) {
         showResult("info", "Reservation lookup skipped: the code is not in the valid format.");
     } else if (!reservationCode) {
@@ -945,8 +892,32 @@ function validateReservationCode() {
     }
 }
 
+function validateReservationCode() {
 
-// ---------- test cases ----------
+    const code = inputCode.value;
+    const result = runDFA(code);
+
+    logToConsole(code, result);
+
+    // Automaton verdict (requirements 2 to 6)
+    verdictCard.dataset.verdict = result.accepted ? "accepted" : "rejected";
+    verdictValue.textContent = result.accepted ? "ACCEPTED" : "REJECTED";
+    verdictInput.textContent = displayString(code);
+    verdictFinal.textContent = result.invalid ? "None (not run)" : result.final;
+    verdictRead.textContent = result.steps.length + " of " + code.length;
+    verdictReason.textContent = explain(code, result);
+
+    renderTape(code, result);
+    renderTrace(result);
+    highlightDiagram(result);
+
+    simResults.hidden = false;
+
+    showLookup(code, result);
+}
+
+
+// ---------- demo inputs ----------
 
 function makeChip(value, expected) {
 
@@ -1008,6 +979,15 @@ function savedTheme() {
     }
 }
 
+function saveTheme(theme) {
+
+    try {
+        localStorage.setItem("theme", theme);
+    } catch (error) {
+        // private mode: the choice just lasts for this visit
+    }
+}
+
 // The inline script in <head> already chose the theme; sync the button label
 setTheme(document.documentElement.dataset.theme);
 
@@ -1016,12 +996,7 @@ themeToggle.addEventListener("click", function() {
     const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
 
     setTheme(next);
-
-    try {
-        localStorage.setItem("theme", next);
-    } catch (error) {
-        // private mode: the choice just lasts for this visit
-    }
+    saveTheme(next);
 });
 
 // Follow the operating system until the user picks a theme themselves
