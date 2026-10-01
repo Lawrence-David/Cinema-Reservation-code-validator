@@ -537,24 +537,368 @@ function generateReservationCode() {
 // VALIDATION
 // ==============================
 
-// BR-1: letter, digit, letter, digit, letter, digit, letter
-function isValidFormat(code) {
 
-    if (code.length !== 7) {
-        return false;
-    }
+const START_STATE = "q0";
+const ACCEPT_STATES = ["q7"];
 
-    for (let i = 0; i < code.length; i++) {
+// One entry per arrow in the diagram
+const transitions = {
+    q0: { "A-Z": "q1", "0-9": "q8" },
+    q1: { "A-Z": "q8", "0-9": "q2" },
+    q2: { "A-Z": "q3", "0-9": "q8" },
+    q3: { "A-Z": "q8", "0-9": "q4" },
+    q4: { "A-Z": "q5", "0-9": "q8" },
+    q5: { "A-Z": "q8", "0-9": "q6" },
+    q6: { "A-Z": "q7", "0-9": "q8" },
+    q7: { "A-Z": "q8", "0-9": "q8" },
+    q8: { "A-Z": "q8", "0-9": "q8" }
+};
 
-        const allowed = i % 2 === 0 ? letters : numbers;
+// Which arrow label does this symbol use? null = not in the alphabet
+function symbolGroup(ch) {
+    if (letters.includes(ch)) return "A-Z";
+    if (numbers.includes(ch)) return "0-9";
+    return null;
+}
 
-        if (!allowed.includes(code[i])) {
-            return false;
+function runDFA(input) {
+
+    const str = input
+    const log = [];
+    const steps = [];
+    let state = START_STATE;
+
+    // Requirement 2: every symbol must belong to the alphabet
+    for (let i = 0; i < str.length; i++) {
+        const ch = str[i];
+        if (symbolGroup(ch) === null) {
+            return {
+                log: ["Invalid symbol '" + ch + "' (not in the alphabet A-Z, 0-9)"],
+                steps: [],
+                invalid: { index: i, symbol: ch },
+                final: "N/A",
+                accepted: false
+            };
         }
     }
 
-    return true;
+    // Requirements 3 and 4: process symbol by symbol, record each transition
+    for (const ch of str) {
+        const next = transitions[state][symbolGroup(ch)];
+        log.push(state + " --" + ch + "--> " + next);
+        steps.push({ from: state, symbol: ch, to: next });
+        state = next;
+    }
+
+    // Requirements 5 and 6
+    return {
+        log: log,
+        steps: steps,
+        invalid: null,
+        final: state,
+        accepted: ACCEPT_STATES.includes(state)
+    };
 }
+
+
+// ==============================
+// SIMULATOR DISPLAY
+// ==============================
+
+const DEAD_STATE = "q8";
+
+// Test cases from the report (Chapter 2, C), plus the empty string
+const TEST_CASES = {
+    accepted: ["A8F5B3C", "G0D3E8V", "D7U9O6F", "I3K2O0Z", "W8L7P1J",
+               "I8F3Y8C", "Y8A9B2T", "N2R6F8J", "T4Q5Z9K", "S3F0U8I"],
+    rejected: ["999FnSj", "7B6C8B7", "BBC9D3F", "A8F5B3", "A8F5B3CC",
+               "“9B7C9F", " A7F7B2C", "A7F_B2C", "ABCDEF", "1234567", ""]
+};
+
+const simResults = document.getElementById("simResults");
+const verdictCard = document.getElementById("verdictCard");
+const verdictValue = document.getElementById("verdictValue");
+const verdictInput = document.getElementById("verdictInput");
+const verdictFinal = document.getElementById("verdictFinal");
+const verdictRead = document.getElementById("verdictRead");
+const verdictReason = document.getElementById("verdictReason");
+const inputTape = document.getElementById("inputTape");
+const traceBody = document.getElementById("traceBody");
+const dfaDiagram = document.getElementById("dfaDiagram");
+
+// Show invisible characters so a leading space or empty input is visible
+function displaySymbol(ch) {
+    return ch === " " ? "␣" : ch;
+}
+
+function displayString(str) {
+    return str === "" ? "ε (empty)" : [...str].map(displaySymbol).join("");
+}
+
+// Plain-language reason, for the demo and the defense
+function explain(input, result) {
+
+    if (result.invalid) {
+        return "Position " + (result.invalid.index + 1) + " is '" +
+            displaySymbol(result.invalid.symbol) +
+            "', which is not in Σ = {A–Z, 0–9}. The input is rejected before any transition is made.";
+    }
+
+    if (input === "") {
+        return "Empty string ε: no symbols are read, so the automaton stays in q0, which is not an accepting state.";
+    }
+
+    if (result.accepted) {
+        return "All 7 symbols matched the letter-digit pattern and the automaton ended in q7, the accepting state.";
+    }
+
+    const deadIndex = result.steps.findIndex(step => step.to === DEAD_STATE);
+
+    if (deadIndex !== -1) {
+
+        const step = result.steps[deadIndex];
+
+        if (step.from === "q7") {
+            return "The first 7 symbols formed a valid code, but symbol " + (deadIndex + 1) +
+                " ('" + step.symbol + "') is extra. q7 has no outgoing path except to the dead state q8.";
+        }
+
+        const expected = transitions[step.from]["A-Z"] !== DEAD_STATE ? "a letter (A–Z)" : "a digit (0–9)";
+
+        return "Position " + (deadIndex + 1) + " is '" + step.symbol + "' but should be " + expected +
+            ", so the automaton moved to the dead state q8 and stayed there.";
+    }
+
+    return "The input ended after " + input.length + " symbol" + (input.length === 1 ? "" : "s") +
+        " in " + result.final + ", which is not an accepting state. A valid code has exactly 7.";
+}
+
+function renderTape(input, result) {
+
+    inputTape.innerHTML = "";
+
+    const deadIndex = result.steps.findIndex(step => step.to === DEAD_STATE);
+
+    [...input].forEach((ch, i) => {
+
+        const cell = document.createElement("li");
+        let status = "ok";
+
+        if (result.invalid) {
+            status = i === result.invalid.index ? "bad" : "skipped";
+        } else if (deadIndex !== -1 && i === deadIndex) {
+            status = "bad";
+        } else if (deadIndex !== -1 && i > deadIndex) {
+            status = "after";
+        }
+
+        cell.className = "tape-cell tape-" + status;
+        cell.innerHTML = "<span class='tape-pos'>" + (i + 1) + "</span><span class='tape-sym'></span>";
+        cell.querySelector(".tape-sym").textContent = displaySymbol(ch);
+
+        inputTape.appendChild(cell);
+    });
+
+    inputTape.hidden = input === "";
+}
+
+function renderTrace(input, result) {
+
+    traceBody.innerHTML = "";
+
+    if (result.steps.length === 0) {
+
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+
+        cell.colSpan = 4;
+        cell.className = "trace-empty";
+        cell.textContent = result.invalid
+            ? "No transitions: the input contains a symbol outside the alphabet."
+            : "No transitions: no symbols were read.";
+
+        row.appendChild(cell);
+        traceBody.appendChild(row);
+        return;
+    }
+
+    result.steps.forEach((step, i) => {
+
+        const row = document.createElement("tr");
+
+        if (step.to === DEAD_STATE) {
+            row.className = "to-dead";
+        }
+
+        [String(i + 1), step.symbol, step.from, step.to].forEach(text => {
+            const cell = document.createElement("td");
+            cell.textContent = text;
+            row.appendChild(cell);
+        });
+
+        traceBody.appendChild(row);
+    });
+}
+
+
+// ---------- DFA diagram, drawn from the transitions table ----------
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+const CHAIN = ["q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7"];
+const R = 24;
+const POS = {};
+
+CHAIN.forEach((name, i) => {
+    POS[name] = { x: 70 + i * 110, y: 70 };
+});
+POS[DEAD_STATE] = { x: 455, y: 205 };
+
+function svg(tag, attrs, parent) {
+
+    const el = document.createElementNS(SVG_NS, tag);
+
+    Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value));
+
+    if (parent) {
+        parent.appendChild(el);
+    }
+
+    return el;
+}
+
+function edgeLine(from, to, cls, parent) {
+
+    const a = POS[from];
+    const b = POS[to];
+    const length = Math.hypot(b.x - a.x, b.y - a.y);
+    const ux = (b.x - a.x) / length;
+    const uy = (b.y - a.y) / length;
+
+    return svg("line", {
+        x1: a.x + ux * R, y1: a.y + uy * R,
+        x2: b.x - ux * (R + 3), y2: b.y - uy * (R + 3),
+        class: cls,
+        "data-edge": from + ">" + to,
+        "marker-end": "url(#arrow)"
+    }, parent);
+}
+
+function drawDiagram() {
+
+    const defs = svg("defs", {}, dfaDiagram);
+
+    [["arrow", "m-normal"], ["arrowTaken", "m-taken"], ["arrowDead", "m-dead"]].forEach(([id, cls]) => {
+        const marker = svg("marker", {
+            id: id, viewBox: "0 0 10 10", refX: 8, refY: 5,
+            markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse"
+        }, defs);
+        svg("path", { d: "M0,0 L10,5 L0,10 z", class: cls }, marker);
+    });
+
+    const edges = svg("g", { class: "dfa-edges" }, dfaDiagram);
+
+    // start arrow
+    svg("line", {
+        x1: 8, y1: 70, x2: POS.q0.x - R - 3, y2: 70,
+        class: "dfa-edge dfa-start", "marker-end": "url(#arrow)"
+    }, edges);
+
+    // every transition, straight from the table
+    Object.entries(transitions).forEach(([from, row]) => {
+
+        Object.entries(row).forEach(([group, to]) => {
+
+            if (from === DEAD_STATE) {
+                return;
+            }
+
+            const toDead = to === DEAD_STATE;
+            const line = edgeLine(from, to, "dfa-edge" + (toDead ? " dfa-edge-dead" : ""), edges);
+
+            if (!toDead) {
+                const a = POS[from];
+                const b = POS[to];
+                const label = svg("text", {
+                    x: (a.x + b.x) / 2, y: a.y - 12,
+                    class: "dfa-label", "text-anchor": "middle"
+                }, edges);
+                label.textContent = group;
+            }
+
+            line.dataset.group = group;
+        });
+    });
+
+    // dead state self-loop
+    const d = POS[DEAD_STATE];
+    svg("path", {
+        d: "M" + (d.x - 12) + "," + (d.y + 21) +
+           " C" + (d.x - 46) + "," + (d.y + 62) + " " + (d.x + 46) + "," + (d.y + 62) + " " +
+           (d.x + 13) + "," + (d.y + 23),
+        class: "dfa-edge dfa-edge-dead", "data-edge": DEAD_STATE + ">" + DEAD_STATE,
+        fill: "none", "marker-end": "url(#arrow)"
+    }, edges);
+    const loopLabel = svg("text", { x: d.x + 44, y: d.y + 52, class: "dfa-label" }, edges);
+    loopLabel.textContent = "A-Z, 0-9";
+
+    // states
+    [...CHAIN, DEAD_STATE].forEach(name => {
+
+        const p = POS[name];
+        const group = svg("g", { class: "dfa-state", "data-state": name }, dfaDiagram);
+
+        svg("circle", { cx: p.x, cy: p.y, r: R }, group);
+
+        if (ACCEPT_STATES.includes(name)) {
+            svg("circle", { cx: p.x, cy: p.y, r: R - 5, class: "dfa-inner" }, group);
+        }
+
+        const text = svg("text", { x: p.x, y: p.y + 5, "text-anchor": "middle" }, group);
+        text.textContent = name;
+    });
+}
+
+function highlightDiagram(result) {
+
+    dfaDiagram.querySelectorAll(".dfa-state").forEach(el => {
+        el.classList.remove("visited", "final-accept", "final-reject");
+    });
+
+    dfaDiagram.querySelectorAll("[data-edge]").forEach(el => {
+        el.classList.remove("taken");
+        el.setAttribute("marker-end", "url(#arrow)");
+    });
+
+    if (result.invalid) {
+        dfaDiagram.setAttribute("aria-label",
+            "DFA diagram. The input was rejected before any transition, because it contains a symbol outside the alphabet.");
+        return;
+    }
+
+    const path = [START_STATE, ...result.steps.map(step => step.to)];
+
+    path.forEach(name => {
+        dfaDiagram.querySelector("[data-state='" + name + "']").classList.add("visited");
+    });
+
+    result.steps.forEach(step => {
+        const edge = dfaDiagram.querySelector("[data-edge='" + step.from + ">" + step.to + "']");
+        edge.classList.add("taken");
+        edge.setAttribute("marker-end", step.to === DEAD_STATE ? "url(#arrowDead)" : "url(#arrowTaken)");
+    });
+
+    dfaDiagram.querySelector("[data-state='" + result.final + "']")
+        .classList.add(result.accepted ? "final-accept" : "final-reject");
+
+    dfaDiagram.setAttribute("aria-label",
+        "DFA diagram. Path: " + path.join(" to ") + ". Final state " + result.final +
+        (result.accepted ? ", accepted." : ", rejected."));
+}
+
+drawDiagram();
+
+
+// ---------- running one input ----------
 
 function showResult(state, message) {
 
@@ -564,38 +908,77 @@ function showResult(state, message) {
 
 function validateReservationCode() {
 
-    // BR-4: ignore spaces and letter case
-    const code = inputCode.value.trim().toUpperCase();
+    const code = inputCode.value;
 
-    if (code === "") {
-        showResult("empty", "Enter your reservation code.");
-        return;
-    }
+    const result = runDFA(code);
 
-    if (!isValidFormat(code)) {
-        showResult("error", "That doesn't look right. Codes look like A1B2C3D.");
-        return;
-    }
+    console.log("Input:", code);
+    result.log.forEach(line => console.log(line));
+    console.log("Final state:", result.final);
+    console.log(result.accepted ? "ACCEPTED" : "REJECTED");
+    console.log("-----");
 
-    if (!reservationCode) {
-        showResult("error", "No reservation has been made yet.");
-        return;
-    }
+    // Automaton verdict (requirements 2 to 6)
+    verdictCard.dataset.verdict = result.accepted ? "accepted" : "rejected";
+    verdictValue.textContent = result.accepted ? "ACCEPTED" : "REJECTED";
+    verdictInput.textContent = displayString(code);
+    verdictFinal.textContent = result.invalid ? "None (not run)" : result.final;
+    verdictRead.textContent = result.steps.length + " of " + code.length;
+    verdictReason.textContent = explain(code, result);
 
-    if (code === reservationCode) {
-        showResult("success", "Reservation code is valid!");
+    renderTape(code, result);
+    renderTrace(code, result);
+    highlightDiagram(result);
+
+    simResults.hidden = false;
+
+    // Reservation lookup is separate from the automaton: the DFA only decides
+    // whether the string is in the language, not whether a booking exists
+    if (!result.accepted) {
+        showResult("info", "Reservation lookup skipped: the code is not in the valid format.");
+    } else if (!reservationCode) {
+        showResult("info", "Valid format. No reservation has been made in this session yet.");
+    } else if (code === reservationCode) {
+        showResult("success", "Valid format, and it matches your reservation.");
     } else {
-        showResult("error", "No reservation found for that code.");
+        showResult("info", "Valid format, but no reservation was issued with this code.");
     }
 }
+
+
+// ---------- test cases ----------
+
+function makeChip(value, expected) {
+
+    const chip = document.createElement("button");
+
+    chip.type = "button";
+    chip.className = "tc-chip";
+    chip.textContent = displayString(value);
+    chip.setAttribute("aria-label", "Run test case " + displayString(value) + ", expected " + expected);
+
+    chip.addEventListener("click", function() {
+        inputCode.value = value;
+        validateReservationCode();
+    });
+
+    return chip;
+}
+
+document.getElementById("tcAccepted").append(...TEST_CASES.accepted.map(v => makeChip(v, "accepted")));
+document.getElementById("tcRejected").append(...TEST_CASES.rejected.map(v => makeChip(v, "rejected")));
+
+
+// ---------- form ----------
+
+inputCode.addEventListener("input", function() {
+    showResult("", "");
+    simResults.hidden = true;
+});
 
 document.getElementById("validatorForm").addEventListener("submit", function(event) {
     event.preventDefault();
     validateReservationCode();
-});
-
-inputCode.addEventListener("input", function() {
-    showResult("", "");
 });
 
 
